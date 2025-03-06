@@ -1,0 +1,10 @@
+[package]
+name = "rust-http-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.97"
+err-derive = "0.3.1"
+log = "0.4.26"
+tokio = { version = "1.43.0", features = ["macros", "rt", "rt-multi-thread", "net"] }
