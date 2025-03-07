@@ -1,6 +1,8 @@
-use std::{collections::HashMap, str::{FromStr, Lines}};
+use std::{collections::HashMap, fmt::Display, str::{FromStr, Lines}};
 
 use err_derive::Error;
+
+use super::HttpVersion;
 
 pub type Result<T> = std::result::Result<T, ParseRequestErr>;
 
@@ -17,7 +19,9 @@ pub enum ParseRequestErr {
     #[error(display = "End of input reached unexpectedly")]
     UnexpectedEndOfInput,
     #[error(display = "Parse int error: {}", _0)]
-    ParseIntError(#[source] std::num::ParseIntError)
+    ParseIntError(#[source] std::num::ParseIntError),
+    #[error(display = "From Utf8 error: {}", _0)]
+    FromUtf8Error(#[source] std::string::FromUtf8Error),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -52,38 +56,21 @@ impl FromStr for HttpMethod {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct HttpVersion {
-    major: u32,
-    minor: u32,
-}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Route(String);
 
-impl FromStr for HttpVersion {
-    type Err = ParseRequestErr;
-
-    fn from_str(s: &str) -> Result<Self> {
-        if !s.starts_with("HTTP/") {
-            return Err(ParseRequestErr::InvalidVersion(s.to_string()));
-        }
-
-        let mut split = s[5..].split(".");
-        let major: u32 = split
-            .next().ok_or(ParseRequestErr::InvalidVersion(s.to_string()))?
-            .parse()?;
-        
-        let minor: u32 = match split.next() {
-            Some(v) => v.parse()?,
-            None => 0,
-        };
-
-        Ok(Self { major, minor })
+impl Route {
+    pub fn new(input: impl Display) -> Result<Self> {
+        let input = input.to_string();
+        let decoded = urlencoding::decode(&input)?;
+        Ok(Self(decoded.into_owned()))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpRequest {
     method: HttpMethod,
-    route: String,
+    route: Route,
     version: HttpVersion,
     headers: HashMap<String, String>,
     body: String,
@@ -100,7 +87,7 @@ impl HttpRequest {
     }
 }
 
-fn parse_head<'a>(lines: &mut Lines<'a>) -> Result<(HttpMethod, String, HttpVersion)> {
+fn parse_head<'a>(lines: &mut Lines<'a>) -> Result<(HttpMethod, Route, HttpVersion)> {
     let head = lines.next()
         .ok_or(ParseRequestErr::UnexpectedEndOfInput)?;
 
@@ -110,10 +97,9 @@ fn parse_head<'a>(lines: &mut Lines<'a>) -> Result<(HttpMethod, String, HttpVers
         .ok_or(ParseRequestErr::InvalidRequestHead(head.to_string()))?
         .parse()?;
 
-    let route =  split
+    let route =  Route::new(split
         .next()
-        .ok_or(ParseRequestErr::InvalidRequestHead(head.to_string()))?
-        .to_string();
+        .ok_or(ParseRequestErr::InvalidRequestHead(head.to_string()))?)?;
 
     let version: HttpVersion =  split
         .next()
