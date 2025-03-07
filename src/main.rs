@@ -4,6 +4,7 @@ mod models;
 
 use std::net::SocketAddr;
 
+use models::HttpResponse;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 
 const HOST_ADDR_VARIABLE: &str = "HOST_ADDR";
@@ -82,8 +83,10 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
         },
     }
 
+    let response = HttpResponse::im_a_teapot("Hello!").to_string();
+
     stream.writable().await?;
-    stream.try_write(b"HTTP/1.1 200 OK\r\n\r\n")?;
+    stream.try_write(response.as_bytes())?;
 
     println!("Connection with {} closed", addr);
 
