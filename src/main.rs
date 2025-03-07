@@ -1,4 +1,6 @@
-mod http;
+#![allow(non_local_definitions)]
+
+mod models;
 
 use std::net::SocketAddr;
 
@@ -73,8 +75,11 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
     let message = read_all(&stream)?;
     
     match String::from_utf8(message) {
-        Ok(msg) => println!("===== Received message =====\n{}\n============================", msg),
-        Err(_) => println!("Received byte message.")
+        Err(_) => println!("Received byte message."),
+        Ok(msg) => {
+            let model = models::HttpRequest::new(&msg);
+            println!("{:#?}", model);
+        },
     }
 
     stream.writable().await?;
